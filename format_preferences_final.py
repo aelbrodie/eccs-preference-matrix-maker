@@ -1,51 +1,64 @@
 import streamlit as st
 import pandas as pd
+from openpyxl import load_workbook
+import io
 
 st.title("Proposal Preferences Formatter")
 
-# Upload preference files (multiple allowed)
 uploaded_files = st.file_uploader(
-    "Upload preference files (multiple allowed)", 
-    type=["xlsx"], 
+    "Upload preference files (multiple allowed)",
+    type=["xlsx"],
     accept_multiple_files=True
 )
 
-# Upload the formatting template file (optional)
-template_file = st.file_uploader("Upload the formatting template file (optional)", type=["xlsx"])
+template_file = st.file_uploader(
+    "Upload the formatting template file (optional)",
+    type=["xlsx"]
+)
 
-# "Go" button to trigger processing
 if st.button("Go"):
-    # Check if at least one input is provided
     if not uploaded_files and not template_file:
         st.error("Please upload at least one preference file or a formatting template.")
     else:
-        # Process preference files if any
+        # Process preference files
         if uploaded_files:
-            st.write(f"Processing {len(uploaded_files)} preference file(s)...")
             for uploaded_file in uploaded_files:
-                df = pd.read_excel(uploaded_file)
-                # Your processing logic here, for example:
-                st.write(f"Preview of {uploaded_file.name}:")
-                st.dataframe(df.head())
+                st.write(f"Processing file: {uploaded_file.name}")
+                try:
+                    # First try with pandas.ExcelFile
+                    xls = pd.ExcelFile(uploaded_file)
+                    st.write(f"Sheets found: {xls.sheet_names}")
+                    if len(xls.sheet_names) == 0:
+                        st.error(f"File '{uploaded_file.name}' has no sheets.")
+                        continue
+                    # Read first sheet by name explicitly
+                    df = pd.read_excel(xls, sheet_name=xls.sheet_names[0])
+                    st.write(df.head())
+                except Exception as e:
+                    st.warning(f"Pandas failed to read '{uploaded_file.name}': {e}")
+                    # Try openpyxl fallback
+                    try:
+                        uploaded_file.seek(0)  # Reset file pointer
+                        wb = load_workbook(filename=io.BytesIO(uploaded_file.read()))
+                        st.write(f"openpyxl sheets: {wb.sheetnames}")
+                        if not wb.sheetnames:
+                            st.error(f"openpyxl found no sheets in '{uploaded_file.name}'.")
+                            continue
+                        # Read first sheet data with openpyxl (optional)
+                        ws = wb[wb.sheetnames[0]]
+                        data = ws.values
+                        cols = next(data)
+                        data = list(data)
+                        df = pd.DataFrame(data, columns=cols)
+                        st.write(df.head())
+                    except Exception as e2:
+                        st.error(f"openpyxl also failed for '{uploaded_file.name}': {e2}")
 
         # Process template file if provided
         if template_file:
-            st.write("Processing the formatting template file...")
-            template_df = pd.read_excel(template_file)
-            # Your processing logic here
-            st.write("Template preview:")
-            st.dataframe(template_df.head())
-import pandas as pd
-
-try:
-    xls = pd.ExcelFile(uploaded_file)
-    if len(xls.sheet_names) == 0:
-        st.error(f"The file {uploaded_file.name} contains no sheets.")
-    else:
-        df = pd.read_excel(uploaded_file)  # defaults to first sheet
-        st.write(df.head())
-except Exception as e:
-    st.error(f"Error reading {uploaded_file.name}: {e}")
-
-
-
+            st.write("Processing formatting template file...")
+            try:
+                xls = pd.ExcelFile(template_file)
+                st.write(f"Template sheets: {xls.sheet_names}")
+                if len(xls.sheet_names) == 0:
+                    st
