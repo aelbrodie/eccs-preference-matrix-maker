@@ -1,52 +1,39 @@
 import streamlit as st
 import pandas as pd
-import io
 
 st.title("Proposal Preferences Formatter")
 
-uploaded_files = st.file_uploader("Upload preference files (multiple allowed)", type=["xlsx"], accept_multiple_files=True)
-template_file = st.file_uploader("Upload template Excel file", type=["xlsx"])
+# Upload preference files (multiple allowed)
+uploaded_files = st.file_uploader(
+    "Upload preference files (multiple allowed)", 
+    type=["xlsx"], 
+    accept_multiple_files=True
+)
 
-if uploaded_files and template_file:
-    st.write(f"Uploaded {len(uploaded_files)} files")
-    if st.button("Format Preference Files"):
-        try:
-            dfs = [pd.read_excel(f) for f in uploaded_files]
-            df_combined = pd.concat(dfs, ignore_index=True)
-            st.write(f"Combined data rows: {df_combined.shape[0]}")
+# Upload the formatting template file (optional)
+template_file = st.file_uploader("Upload the formatting template file (optional)", type=["xlsx"])
 
-            template = pd.read_excel(template_file)
-            template_columns = template.columns.tolist()
+# "Go" button to trigger processing
+if st.button("Go"):
+    # Check if at least one input is provided
+    if not uploaded_files and not template_file:
+        st.error("Please upload at least one preference file or a formatting template.")
+    else:
+        # Process preference files if any
+        if uploaded_files:
+            st.write(f"Processing {len(uploaded_files)} preference file(s)...")
+            for uploaded_file in uploaded_files:
+                df = pd.read_excel(uploaded_file)
+                # Your processing logic here, for example:
+                st.write(f"Preview of {uploaded_file.name}:")
+                st.dataframe(df.head())
 
-            df_combined.columns = df_combined.columns.str.strip()
-            if 'COI' in df_combined.columns:
-                df_combined['COI'] = df_combined['COI'].fillna(0).astype(int)
-                df_combined.loc[df_combined['COI'] == 0, 'COI'] = ""
+        # Process template file if provided
+        if template_file:
+            st.write("Processing the formatting template file...")
+            template_df = pd.read_excel(template_file)
+            # Your processing logic here
+            st.write("Template preview:")
+            st.dataframe(template_df.head())
 
-            df_template = pd.DataFrame(columns=template_columns)
-            for col in template_columns:
-                if col in df_combined.columns:
-                    df_template[col] = df_combined[col]
-                else:
-                    df_template[col] = ""
 
-            output = io.BytesIO()
-            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-                df_template.to_excel(writer, index=False, sheet_name='Formatted')
-
-            st.success("Formatting complete! Download your file below:")
-            st.download_button(
-                label="Download Formatted Excel",
-                data=output.getvalue(),
-                file_name="formatted_template.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
-
-            st.markdown("---")
-            st.markdown("### ➡️ Ready for Step 2?")
-            st.markdown(
-                "[**Go to Step 2: Preference Matrix Generator**](https://ds.nsf.gov:8890/user/hkhosrav/streamlit-dashboard-panel-solver/)"
-            )
-
-        except Exception as e:
-            st.error(f"Error processing files: {e}")
