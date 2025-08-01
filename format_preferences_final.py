@@ -35,5 +35,17 @@ if st.button("Go"):
             # Your processing logic here
             st.write("Template preview:")
             st.dataframe(template_df.head())
+import pandas as pd
+
+try:
+    xls = pd.ExcelFile(uploaded_file)
+    if len(xls.sheet_names) == 0:
+        st.error(f"The file {uploaded_file.name} contains no sheets.")
+    else:
+        df = pd.read_excel(uploaded_file)  # defaults to first sheet
+        st.write(df.head())
+except Exception as e:
+    st.error(f"Error reading {uploaded_file.name}: {e}")
+
 
 
