@@ -44,7 +44,7 @@ if st.button("Go"):
                         if not wb.sheetnames:
                             st.error(f"openpyxl found no sheets in '{uploaded_file.name}'.")
                             continue
-                        # Read first sheet data with openpyxl (optional)
+                        # Read first sheet data with openpyxl
                         ws = wb[wb.sheetnames[0]]
                         data = ws.values
                         cols = next(data)
@@ -61,4 +61,9 @@ if st.button("Go"):
                 xls = pd.ExcelFile(template_file)
                 st.write(f"Template sheets: {xls.sheet_names}")
                 if len(xls.sheet_names) == 0:
-                    st
+                    st.error("Template file has no sheets.")
+                else:
+                    df_template = pd.read_excel(xls, sheet_name=xls.sheet_names[0])
+                    st.write(df_template.head())
+            except Exception as e:
+                st.error(f"Failed to read template file: {e}")
