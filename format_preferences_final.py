@@ -83,4 +83,5 @@ if uploaded_files:
     assignment_df = assignment_df.reset_index()
 
     # Merge with PI and Institution info
-    final_df = pi_info.reset_index()_
+    final_df = pi_info.reset_index()
+
