@@ -91,9 +91,9 @@ if st.button("Generate Assignments"):
 
             display_df = final_df.copy()
             for i, row in display_df.iterrows():
-    proposal = str(row["Proposal ID"]).strip()
-    for col in assignment_df.columns[1:]:  # Skip Proposal ID column
-        reviewer = str(row[col]).strip()
+                proposal = str(row["Proposal ID"]).strip()
+                for col in assignment_df.columns[1:]:  # Skip Proposal ID column
+                    reviewer = str(row[col]).strip()
         # Check if reviewer and proposal exist in combined DataFrame
         if reviewer in combined.columns and proposal in combined.index:
             score = combined.at[proposal, reviewer]
@@ -113,4 +113,5 @@ if st.button("Generate Assignments"):
                 "text/csv",
                 key="download_assignments_csv"
             )
+
 
