@@ -102,6 +102,19 @@ if st.button("Generate Assignments"):
             # Debug print for final_df
             st.write("Final merged DataFrame (sample):")
             st.write(final_df.head())
+            # Add COI summary column listing all reviewers with COI=0 per proposal
+coi_list = []
+for proposal in final_df["Proposal ID"]:
+    coi_reviewers = [r for r in combined.columns if proposal in combined.index and combined.at[proposal, r] == 0]
+    coi_list.append(", ".join(coi_reviewers) if coi_reviewers else "")
+
+final_df["COIs"] = coi_list
+
+# Set Proposal ID as index for display
+display_df = final_df.set_index("Proposal ID")
+
+st.dataframe(display_df)
+
 
             display_df = final_df.copy()
 
@@ -130,3 +143,4 @@ if st.button("Generate Assignments"):
                 "text/csv",
                 key="download_assignments_csv"
             )
+
