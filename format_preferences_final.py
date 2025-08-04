@@ -116,7 +116,7 @@ for i, row in display_df.iterrows():
 
         # ... [everything else same as before] ...
 
-        def highlight_coi(val):
+    def highlight_coi(val):
     if val == "COI":
         return "color: red; font-weight: bold;"
     return ""
@@ -144,6 +144,7 @@ st.download_button(
     "text/csv",
     key="download_assignments_csv"
 )
+
 
 
 
