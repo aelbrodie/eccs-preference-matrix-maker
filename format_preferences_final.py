@@ -5,13 +5,28 @@ import os
 
 st.title("Proposal Reviewer Assignment Generator")
 
-uploaded_files = st.file_uploader("Upload reviewer preference files", type=["xlsx"], accept_multiple_files=True)
+# Numeric input for number of reviewers per proposal (min=1, max=20 for example)
+reviewers_per_proposal = st.number_input(
+    "Number of reviewers per proposal",
+    min_value=1,
+    max_value=20,
+    value=3,
+    step=1,
+    format="%d"
+)
 
-reviewers_per_proposal = st.slider("How many reviewers per proposal?", 1, 5, 3)
+uploaded_files = st.file_uploader(
+    "Upload reviewer preference files",
+    type=["xlsx"],
+    accept_multiple_files=True
+)
 
-# Add a button to trigger processing
-if uploaded_files:
-    if st.button("Generate Assignments"):
+# Generate Assignments button always visible
+if st.button("Generate Assignments"):
+
+    if not uploaded_files:
+        st.warning("Please upload at least one reviewer preference file before generating assignments.")
+    else:
         preference_data = {}
         pi_info = None
         proposal_ids = None
