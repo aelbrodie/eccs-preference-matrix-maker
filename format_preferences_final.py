@@ -91,18 +91,15 @@ if st.button("Generate Assignments"):
 
             display_df = final_df.copy()
             for i, row in display_df.iterrows():
-                proposal = row["Proposal ID"]
-                for col in assignment_df.columns[1:]:
-                    reviewer = row[col]
-                    if isinstance(reviewer, str):
-                        if reviewer not in combined.columns:
-                            st.write(f"Reviewer '{reviewer}' not found in combined columns")
-                            continue
-                        val = combined.at[proposal, reviewer]
-                        st.write(f"Checking proposal {proposal}, reviewer {reviewer}, score: {val}")
-                        if pd.isna(val) or val == 0:
-                            display_df.at[i, col] = "🚫 COI"
-                            st.write(f"Marked COI at proposal {proposal}, reviewer {reviewer}")
+    proposal = str(row["Proposal ID"]).strip()
+    for col in assignment_df.columns[1:]:  # Skip Proposal ID column
+        reviewer = str(row[col]).strip()
+        # Check if reviewer and proposal exist in combined DataFrame
+        if reviewer in combined.columns and proposal in combined.index:
+            score = combined.at[proposal, reviewer]
+            if pd.isna(score) or score == 0:
+                display_df.at[i, col] = "🚫 COI"
+
 
             st.success("✅ Reviewer assignments complete.")
             st.dataframe(display_df)
@@ -116,3 +113,4 @@ if st.button("Generate Assignments"):
                 "text/csv",
                 key="download_assignments_csv"
             )
+
