@@ -5,7 +5,6 @@ import os
 
 st.title("Proposal Reviewer Assignment Generator")
 
-# Number input for reviewers per proposal
 reviewers_per_proposal = st.number_input(
     "Number of reviewers per proposal",
     min_value=1,
@@ -15,7 +14,6 @@ reviewers_per_proposal = st.number_input(
     format="%d"
 )
 
-# File uploader for preference files
 uploaded_files = st.file_uploader(
     "Upload reviewer preference files",
     type=["xlsx"],
@@ -60,10 +58,6 @@ if st.button("Generate Assignments"):
             combined.index.name = "Proposal ID"
             combined = combined.apply(pd.to_numeric, errors="coerce").fillna(10).astype(int)
 
-            # Debug prints to verify combined DataFrame
-            st.write("Combined preference matrix (sample):")
-            st.write(combined.head())
-
             cost_matrix = combined.copy()
             cost_matrix[cost_matrix == 0] = 1000
 
@@ -93,46 +87,29 @@ if st.button("Generate Assignments"):
             assignment_df.columns = [f"Reviewer {i+1}" for i in range(assignment_df.shape[1])]
             assignment_df = assignment_df.reset_index()
 
-            # Debug prints to verify assignment_df
-            st.write("Assignment DataFrame (sample):")
-            st.write(assignment_df.head())
-
             final_df = pi_info.reset_index().merge(assignment_df, on="Proposal ID")
 
-            # Debug print for final_df
-            st.write("Final merged DataFrame (sample):")
-            st.write(final_df.head())
             # Add COI summary column listing all reviewers with COI=0 per proposal
-coi_list = []
-for proposal in final_df["Proposal ID"]:
-    coi_reviewers = [r for r in combined.columns if proposal in combined.index and combined.at[proposal, r] == 0]
-    coi_list.append(", ".join(coi_reviewers) if coi_reviewers else "")
+            coi_list = []
+            for proposal in final_df["Proposal ID"]:
+                coi_reviewers = [r for r in combined.columns if proposal in combined.index and combined.at[proposal, r] == 0]
+                coi_list.append(", ".join(coi_reviewers) if coi_reviewers else "")
+            final_df["COIs"] = coi_list
 
-final_df["COIs"] = coi_list
+            # Style function to make COIs column bold and red
+            def style_cois(val):
+                if val:
+                    return "color: red; font-weight: bold;"
+                return ""
 
-# Set Proposal ID as index for display
-display_df = final_df.set_index("Proposal ID")
+            # Set Proposal ID as index for display
+            display_df = final_df.set_index("Proposal ID")
 
-st.dataframe(display_df)
+            st.success("✅ Reviewer assignments complete with COI listing.")
 
-
-            display_df = final_df.copy()
-
-            # Mark COIs robustly with debug outputs
-            for i, row in display_df.iterrows():
-                proposal = str(row["Proposal ID"]).strip()
-                for col in assignment_df.columns[1:]:
-                    reviewer = str(row[col]).strip()
-                    if reviewer in combined.columns and proposal in combined.index:
-                        score = combined.at[proposal, reviewer]
-                        if pd.isna(score) or score == 0:
-                            display_df.at[i, col] = "🚫 COI"
-
-            # Set Proposal ID as index to avoid extra integer index column
-            display_df = display_df.set_index("Proposal ID")
-
-            st.success("✅ Reviewer assignments complete with COI marking.")
-            st.dataframe(display_df)
+            st.dataframe(
+                display_df.style.applymap(style_cois, subset=["COIs"])
+            )
 
             csv = final_df.to_csv(index=False).encode("utf-8")
 
@@ -143,4 +120,3 @@ st.dataframe(display_df)
                 "text/csv",
                 key="download_assignments_csv"
             )
-
