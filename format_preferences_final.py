@@ -117,22 +117,34 @@ for i, row in display_df.iterrows():
         # ... [everything else same as before] ...
 
         def highlight_coi(val):
-            if val == "COI":
-                return "color: red; font-weight: bold;"
-            return ""
+    if val == "COI":
+        return "color: red; font-weight: bold;"
+    return ""
 
-        st.success("✅ Reviewer assignments complete.")
+st.success("✅ Reviewer assignments complete.")
 
-        # Use st.table to better support styled output
-        st.table(display_df.style.applymap(highlight_coi, subset=assignment_df.columns[1:]))
+# Show debug info for COI marking - optional, remove after confirming
+# st.write(display_df)  
 
-        # Provide CSV download with a unique key
-        st.download_button(
-            "⬇️ Download Assignments CSV",
-            csv,
-            "assignments.csv",
-            "text/csv",
-            key="download_assignments_csv")
+# Use st.table with style to show COI in red (may depend on Streamlit version)
+try:
+    st.table(display_df.style.applymap(highlight_coi, subset=assignment_df.columns[1:]))
+except Exception as e:
+    st.write("Failed to apply styling, showing plain table instead.")
+    st.table(display_df)
+
+# Prepare CSV download
+csv = final_df.to_csv(index=False).encode("utf-8")
+st.write(f"CSV bytes type: {type(csv)}")  # Debug line - remove after confirmed
+
+st.download_button(
+    "⬇️ Download Assignments CSV",
+    csv,
+    "assignments.csv",
+    "text/csv",
+    key="download_assignments_csv"
+)
+
 
 
 
