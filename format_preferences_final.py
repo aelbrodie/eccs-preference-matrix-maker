@@ -41,3 +41,69 @@ if uploaded_files:
                 }).set_index("Proposal ID")
             elif not proposal_ids.equals(ids):
                 st.error("⚠️ Proposal IDs do not match across reviewer files.")
+                st.stop()
+
+            preference_data[reviewer_name] = pd.Series(scores.values, index=ids)
+
+        # Combine all reviewers' preferences into a DataFrame
+        combined = pd.DataFrame(preference_data)
+        combined.index.name = "Proposal ID"
+        # Convert all values to numeric, treat missing as 10 (low preference)
+        combined = combined.apply(pd.to_numeric, errors="coerce").fillna(10).astype(int)
+
+        # Build cost matrix: replace 0 (COI) with very high cost (e.g., 1000) to avoid assignment
+        cost_matrix = combined.copy()
+        cost_matrix[cost_matrix == 0] = 1000
+
+        # Initialize assignments and reviewer load
+        assignments = {proposal: [] for proposal in combined.index}
+        reviewer_load = {r: 0 for r in combined.columns}
+
+        total_reviews = reviewers_per_proposal * len(assignments)
+        max_reviews = (total_reviews // len(reviewer_load)) + 1
+
+        # Assign reviewers to proposals based on cost matrix and load
+        for proposal in assignments:
+            scores = cost_matrix.loc[proposal]
+            sorted_reviewers = scores.sort_values().index
+
+            count = 0
+            for r in sorted_reviewers:
+                if scores[r] >= 1000:
+                    continue  # skip COI
+                if reviewer_load[r] < max_reviews:
+                    assignments[proposal].append(r)
+                    reviewer_load[r] += 1
+                    count += 1
+                if count >= reviewers_per_proposal:
+                    break
+
+        # Build assignment DataFrame
+        assignment_df = pd.DataFrame.from_dict(assignments, orient="index")
+        assignment_df.index.name = "Proposal ID"
+        assignment_df.columns = [f"Reviewer {i+1}" for i in range(assignment_df.shape[1])]
+        assignment_df = assignment_df.reset_index()
+
+        # Merge with PI and Institution info
+        final_df = pi_info.reset_index().merge(assignment_df, on="Proposal ID")
+
+        # Mark COI in red if a reviewer had score 0 (conflict)
+        display_df = final_df.copy()
+        for i, row in display_df.iterrows():
+            proposal = row["Proposal ID"]
+            for col in assignment_df.columns[1:]:
+                reviewer = row[col]
+                if combined.at[proposal, reviewer] == 0:
+                    display_df.at[i, col] = "COI"
+
+        def highlight_coi(val):
+            if val == "COI":
+                return "color: red; font-weight: bold;"
+            return ""
+
+        st.success("✅ Reviewer assignments complete.")
+        st.dataframe(display_df.style.applymap(highlight_coi, subset=assignment_df.columns[1:]))
+
+        # Provide CSV download of assignments (without COI replacements)
+        csv = final_df.to_csv(index=False).encode("utf-8")
+        st.download_button("⬇️ Download Assignments CSV", csv, "assignments.csv", "text/csv")
