@@ -102,14 +102,17 @@ if st.button("Generate Assignments"):
         # Merge with PI and Institution info
         final_df = pi_info.reset_index().merge(assignment_df, on="Proposal ID")
 
-        # Mark COI in red if a reviewer had score 0 (conflict)
-        display_df = final_df.copy()
-        for i, row in display_df.iterrows():
-            proposal = row["Proposal ID"]
-            for col in assignment_df.columns[1:]:
-                reviewer = row[col]
-                if combined.at[proposal, reviewer] == 0:
-                    display_df.at[i, col] = "COI"
+      # Mark COI in red if a reviewer had score 0 (conflict)
+display_df = final_df.copy()
+for i, row in display_df.iterrows():
+    proposal = row["Proposal ID"]
+    for col in assignment_df.columns[1:]:
+        reviewer = row[col]
+        # Only check if reviewer is a string and a valid column
+        if isinstance(reviewer, str) and reviewer in combined.columns:
+            if combined.at[proposal, reviewer] == 0:
+                display_df.at[i, col] = "COI"
+
 
         def highlight_coi(val):
             if val == "COI":
@@ -122,3 +125,4 @@ if st.button("Generate Assignments"):
         # Provide CSV download of assignments (without COI replacements)
         csv = final_df.to_csv(index=False).encode("utf-8")
         st.download_button("⬇️ Download Assignments CSV", csv, "assignments.csv", "text/csv")
+
