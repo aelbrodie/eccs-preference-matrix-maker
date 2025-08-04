@@ -11,21 +11,27 @@ reviewers_per_proposal = st.slider("How many reviewers per proposal?", 1, 5, 3)
 
 if uploaded_files:
     preference_data = {}
-    pi_info = {}
+    pi_info = None
     proposal_ids = None
 
+    # Read and parse each uploaded file
     for uploaded in uploaded_files:
+        # Extract reviewer name from filename
         reviewer_name = os.path.basename(uploaded.name).split("template")[-1].replace(".xlsx", "").strip()
+
+        # Read Excel file, no header
         df = pd.read_excel(uploaded, header=None)
 
-        # Extract from row 4 onward
+        # Extract relevant columns starting from row 4 (index 3)
         scores = df.iloc[3:, 0].reset_index(drop=True)
         ids = df.iloc[3:, 1].astype(str).reset_index(drop=True)
         pi_last = df.iloc[3:, 2].astype(str).reset_index(drop=True)
         institution = df.iloc[3:, 4].astype(str).reset_index(drop=True)
 
+        # Validate that Proposal IDs are consistent across files
         if proposal_ids is None:
             proposal_ids = ids
+            # Save PI and Institution info for display
             pi_info = pd.DataFrame({
                 "Proposal ID": ids,
                 "PI Last Name": pi_last,
@@ -37,21 +43,24 @@ if uploaded_files:
 
         preference_data[reviewer_name] = pd.Series(scores.values, index=ids)
 
-    # Combine preferences
+    # Combine all reviewers' preferences into a DataFrame
     combined = pd.DataFrame(preference_data)
     combined.index.name = "Proposal ID"
+    # Convert all values to numeric, treat missing as 10 (low preference)
     combined = combined.apply(pd.to_numeric, errors="coerce").fillna(10).astype(int)
 
-    # Build cost matrix
+    # Build cost matrix: replace 0 (COI) with very high cost (e.g., 1000) to avoid assignment
     cost_matrix = combined.copy()
     cost_matrix[cost_matrix == 0] = 1000
 
-    # Assignment logic
+    # Initialize assignments and reviewer load
     assignments = {proposal: [] for proposal in combined.index}
     reviewer_load = {r: 0 for r in combined.columns}
+
     total_reviews = reviewers_per_proposal * len(assignments)
     max_reviews = (total_reviews // len(reviewer_load)) + 1
 
+    # Assign reviewers to proposals based on cost matrix and load
     for proposal in assignments:
         scores = cost_matrix.loc[proposal]
         sorted_reviewers = scores.sort_values().index
@@ -59,7 +68,7 @@ if uploaded_files:
         count = 0
         for r in sorted_reviewers:
             if scores[r] >= 1000:
-                continue
+                continue  # skip COI
             if reviewer_load[r] < max_reviews:
                 assignments[proposal].append(r)
                 reviewer_load[r] += 1
@@ -67,92 +76,11 @@ if uploaded_files:
             if count >= reviewers_per_proposal:
                 break
 
-    # Create assignment DataFrame
+    # Build assignment DataFrame
     assignment_df = pd.DataFrame.from_dict(assignments, orient="index")
     assignment_df.index.name = "Proposal ID"
     assignment_df.columns = [f"Reviewer {i+1}" for i in range(assignment_df.shape[1])]
     assignment_df = assignment_df.reset_index()
 
-    # Merge PI and institution info
-    final_df = pi_info.reset_index().merge(assignment_df, on="Proposal ID")
-
-    # Mark COIs for display
-    display_df = final_df.copy()
-    for i, row in display_df.iterrows():
-        proposal = row["Proposal ID"]
-        for col in assignment_df.columns[1:]:
-            reviewer = row[col]
-            if combined.at[proposal, reviewer] == 0:
-                display_df.at[i, col] = "COI"
-
-    def highlight_coi(val):
-        if val == "COI":
-            return "color: red; font-weight: bold;"
-        return ""
-
-    st.success("✅ Reviewer assignments complete.")
-    st.dataframe(display_df.style.applymap(highlight_coi, subset=assignment_df.columns[1:]))
-
-    # CSV download (without COI substitutions)
-    csv = final_df.to_csv(index=False).encode('utf-8')
-    st.download_button("⬇️ Download CSV", csv, "assignments.csv", "text/csv")
-
-
-    for uploaded in uploaded_files:
-        # Extract reviewer name from filename
-        reviewer_name = os.path.basename(uploaded.name).split("template")[-1].replace(".xlsx", "").strip()
-        
-        # Read Excel and skip instructions
-        df = pd.read_excel(uploaded, header=None)
-
-        # Preferences start from row 4 (index 3), Proposal ID in col 1
-        scores = df.iloc[3:, 0].reset_index(drop=True)
-        ids = df.iloc[3:, 1].astype(str).reset_index(drop=True)
-
-        if proposal_ids is None:
-            proposal_ids = ids
-        elif not proposal_ids.equals(ids):
-            st.error("⚠️ Proposal IDs do not match across reviewer files.")
-            st.stop()
-
-        preference_data[reviewer_name] = pd.Series(scores.values, index=ids)
-
-    combined = pd.DataFrame(preference_data)
-    combined.index.name = "Proposal ID"
-    combined = combined.apply(pd.to_numeric, errors="coerce").fillna(10).astype(int)
-
-    # COIs = 0 → set to very high cost
-    cost_matrix = combined.copy()
-    cost_matrix[cost_matrix == 0] = 1000
-
-    assignments = {proposal: [] for proposal in combined.index}
-    reviewer_load = {r: 0 for r in combined.columns}
-    total_reviews = reviewers_per_proposal * len(assignments)
-    max_reviews = (total_reviews // len(reviewer_load)) + 1
-
-    for proposal in assignments:
-        scores = cost_matrix.loc[proposal]
-        sorted_reviewers = scores.sort_values().index
-
-        count = 0
-        for r in sorted_reviewers:
-            if scores[r] >= 1000:
-                continue
-            if reviewer_load[r] < max_reviews:
-                assignments[proposal].append(r)
-                reviewer_load[r] += 1
-                count += 1
-            if count >= reviewers_per_proposal:
-                break
-
-    # Final result
-    assignment_df = pd.DataFrame.from_dict(assignments, orient="index")
-    assignment_df.index.name = "Proposal ID"
-    assignment_df.columns = [f"Reviewer {i+1}" for i in range(assignment_df.shape[1])]
-    
-    st.success("✅ Reviewer assignments complete.")
-    st.dataframe(assignment_df)
-
-    csv = assignment_df.to_csv(index=True).encode('utf-8')
-    st.download_button("⬇️ Download CSV", csv, "assignments.csv", "text/csv")
-
+    # Merge with PI and Institution info
+    final_df = pi_info.reset_index()_
