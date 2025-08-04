@@ -1,69 +1,72 @@
-import streamlit as st
 import pandas as pd
-from openpyxl import load_workbook
-import io
+import numpy as np
+import streamlit as st
+import os
 
-st.title("Proposal Preferences Formatter")
+st.title("Proposal Reviewer Assignment Generator")
 
-uploaded_files = st.file_uploader(
-    "Upload preference files (multiple allowed)",
-    type=["xlsx"],
-    accept_multiple_files=True
-)
+uploaded_files = st.file_uploader("Upload reviewer preference files", type=["xlsx"], accept_multiple_files=True)
 
-template_file = st.file_uploader(
-    "Upload the formatting template file (optional)",
-    type=["xlsx"]
-)
+reviewers_per_proposal = st.slider("How many reviewers per proposal?", 1, 5, 3)
 
-if st.button("Go"):
-    if not uploaded_files and not template_file:
-        st.error("Please upload at least one preference file or a formatting template.")
-    else:
-        # Process preference files
-        if uploaded_files:
-            st.write(f"Processing {len(uploaded_files)} preference file(s)")
-            for uploaded_file in uploaded_files:
-                st.write(f"Processing file: {uploaded_file.name}")
-                try:
-                    uploaded_file.seek(0)
-                    xls = pd.ExcelFile(uploaded_file, engine='openpyxl')
-                    st.write(f"Sheets found: {xls.sheet_names}")
-                    if len(xls.sheet_names) == 0:
-                        st.error(f"File '{uploaded_file.name}' has no sheets.")
-                        continue
-                    df = pd.read_excel(xls, sheet_name=xls.sheet_names[0])
-                    st.write(f"Preview of {uploaded_file.name}:")
-                    st.dataframe(df.head())
-                except Exception as e:
-                    st.warning(f"Pandas failed to read '{uploaded_file.name}': {e}")
-                    try:
-                        uploaded_file.seek(0)
-                        wb = load_workbook(filename=io.BytesIO(uploaded_file.read()))
-                        st.write(f"openpyxl sheets: {wb.sheetnames}")
-                        if not wb.sheetnames:
-                            st.error(f"openpyxl found no sheets in '{uploaded_file.name}'.")
-                            continue
-                        ws = wb[wb.sheetnames[0]]
-                        data = ws.values
-                        cols = next(data)
-                        data = list(data)
-                        df = pd.DataFrame(data, columns=cols)
-                        st.write(df.head())
-                    except Exception as e2:
-                        st.error(f"openpyxl also failed for '{uploaded_file.name}': {e2}")
+if uploaded_files:
+    preference_data = {}
+    proposal_ids = None
 
-        # Process template file if provided
-        if template_file:
-            st.write("Processing formatting template file...")
-            try:
-                template_file.seek(0)
-                xls = pd.ExcelFile(template_file, engine='openpyxl')
-                st.write(f"Template sheets: {xls.sheet_names}")
-                if len(xls.sheet_names) == 0:
-                    st.error("Template file has no sheets.")
-                else:
-                    df_template = pd.read_excel(xls, sheet_name=xls.sheet_names[0])
-                    st.write(df_template.head())
-            except Exception as e:
-                st.error(f"Failed to read template file: {e}")
+    for uploaded in uploaded_files:
+        # Extract reviewer name from filename
+        reviewer_name = os.path.basename(uploaded.name).split("template")[-1].replace(".xlsx", "").strip()
+        
+        # Read Excel and skip instructions
+        df = pd.read_excel(uploaded, header=None)
+
+        # Preferences start from row 4 (index 3), Proposal ID in col 1
+        scores = df.iloc[3:, 0].reset_index(drop=True)
+        ids = df.iloc[3:, 1].astype(str).reset_index(drop=True)
+
+        if proposal_ids is None:
+            proposal_ids = ids
+        elif not proposal_ids.equals(ids):
+            st.error("⚠️ Proposal IDs do not match across reviewer files.")
+            st.stop()
+
+        preference_data[reviewer_name] = pd.Series(scores.values, index=ids)
+
+    combined = pd.DataFrame(preference_data)
+    combined.index.name = "Proposal ID"
+    combined = combined.apply(pd.to_numeric, errors="coerce").fillna(10).astype(int)
+
+    # COIs = 0 → set to very high cost
+    cost_matrix = combined.copy()
+    cost_matrix[cost_matrix == 0] = 1000
+
+    assignments = {proposal: [] for proposal in combined.index}
+    reviewer_load = {r: 0 for r in combined.columns}
+    total_reviews = reviewers_per_proposal * len(assignments)
+    max_reviews = (total_reviews // len(reviewer_load)) + 1
+
+    for proposal in assignments:
+        scores = cost_matrix.loc[proposal]
+        sorted_reviewers = scores.sort_values().index
+
+        count = 0
+        for r in sorted_reviewers:
+            if scores[r] >= 1000:
+                continue
+            if reviewer_load[r] < max_reviews:
+                assignments[proposal].append(r)
+                reviewer_load[r] += 1
+                count += 1
+            if count >= reviewers_per_proposal:
+                break
+
+    # Final result
+    assignment_df = pd.DataFrame.from_dict(assignments, orient="index")
+    assignment_df.index.name = "Proposal ID"
+    assignment_df.columns = [f"Reviewer {i+1}" for i in range(assignment_df.shape[1])]
+    
+    st.success("✅ Reviewer assignments complete.")
+    st.dataframe(assignment_df)
+
+    csv = assignment_df.to_csv(index=True).encode('utf-8')
+    st.download_button("⬇️ Download CSV", csv, "assignments.csv", "text/csv")
