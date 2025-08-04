@@ -114,15 +114,27 @@ for i, row in display_df.iterrows():
                 display_df.at[i, col] = "COI"
 
 
+        # ... [everything else same as before] ...
+
         def highlight_coi(val):
             if val == "COI":
                 return "color: red; font-weight: bold;"
             return ""
 
         st.success("✅ Reviewer assignments complete.")
-        st.dataframe(display_df.style.applymap(highlight_coi, subset=assignment_df.columns[1:]))
 
-        # Provide CSV download of assignments (without COI replacements)
-        csv = final_df.to_csv(index=False).encode("utf-8")
-        st.download_button("⬇️ Download Assignments CSV", csv, "assignments.csv", "text/csv")
+        # Use st.table to better support styled output
+        st.table(display_df.style.applymap(highlight_coi, subset=assignment_df.columns[1:]))
+
+        # Provide CSV download with a unique key
+        st.download_button(
+            "⬇️ Download Assignments CSV",
+            csv,
+            "assignments.csv",
+            "text/csv",
+            key="download_assignments_csv")
+
+
+
+
 
