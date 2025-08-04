@@ -107,5 +107,4 @@ if st.button("Generate Assignments"):
                 csv,
                 "assignments.csv",
                 "text/csv",
-                key="download_assignments_csv"
-            )
+                key="download_assignments_csv")
