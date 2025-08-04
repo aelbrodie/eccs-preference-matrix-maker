@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 import streamlit as st
 import os
 
@@ -93,9 +94,15 @@ if st.button("Generate Assignments"):
                 proposal = row["Proposal ID"]
                 for col in assignment_df.columns[1:]:
                     reviewer = row[col]
-                    if isinstance(reviewer, str) and reviewer in combined.columns:
-                        if combined.at[proposal, reviewer] == 0:
+                    if isinstance(reviewer, str):
+                        if reviewer not in combined.columns:
+                            st.write(f"Reviewer '{reviewer}' not found in combined columns")
+                            continue
+                        val = combined.at[proposal, reviewer]
+                        st.write(f"Checking proposal {proposal}, reviewer {reviewer}, score: {val}")
+                        if pd.isna(val) or val == 0:
                             display_df.at[i, col] = "🚫 COI"
+                            st.write(f"Marked COI at proposal {proposal}, reviewer {reviewer}")
 
             st.success("✅ Reviewer assignments complete.")
             st.dataframe(display_df)
@@ -107,4 +114,5 @@ if st.button("Generate Assignments"):
                 csv,
                 "assignments.csv",
                 "text/csv",
-                key="download_assignments_csv")
+                key="download_assignments_csv"
+            )
