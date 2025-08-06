@@ -6,18 +6,15 @@ from io import BytesIO
 
 st.set_page_config(page_title="Proposal Reviewer Assignment Generator")
 
-# --- Custom CSS for visual grouping ---
+# Custom CSS to expand Streamlit's default file uploader height
 st.markdown("""
     <style>
-    .file-box {
-        border: 1px solid #ddd;
-        padding: 10px;
-        border-radius: 10px;
-        margin-bottom: 10px;
-        background-color: #f9f9f9;
-        box-shadow: 1px 1px 5px rgba(0, 0, 0, 0.05);
-        font-family: monospace;
+    /* Make the file upload preview box taller so all files show */
+    .stFileUploader > div > div {
+        max-height: none !important;
     }
+    </style>
+""", unsafe_allow_html=True)
 
     .file-list-container {
         max-height: 600px;
@@ -48,14 +45,7 @@ uploaded_files = st.file_uploader(
     accept_multiple_files=True
 )
 
-# --- Display uploaded files visually grouped ---
-if uploaded_files:
-    st.subheader("Uploaded Files")
-    with st.container():
-        st.markdown('<div class="file-list-container">', unsafe_allow_html=True)
-        for file in uploaded_files:
-            st.markdown(f'<div class="file-box">{file.name}</div>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+
 
 if st.button("Generate Assignments"):
 
@@ -171,3 +161,4 @@ if st.button("Generate Assignments"):
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 key="download_assignments_excel"
             )
+
