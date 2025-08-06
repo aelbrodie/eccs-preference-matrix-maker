@@ -2,6 +2,34 @@ import pandas as pd
 import numpy as np
 import streamlit as st
 import os
+from io import BytesIO
+
+st.set_page_config(page_title="Proposal Reviewer Assignment Generator")
+
+# --- Custom CSS for visual grouping ---
+st.markdown("""
+    <style>
+    .file-box {
+        border: 1px solid #ddd;
+        padding: 10px;
+        border-radius: 10px;
+        margin-bottom: 10px;
+        background-color: #f9f9f9;
+        box-shadow: 1px 1px 5px rgba(0, 0, 0, 0.05);
+        font-family: monospace;
+    }
+
+    .file-list-container {
+        max-height: 600px;
+        overflow-y: auto;
+        padding-right: 10px;
+    }
+
+    .stFileUploader > div {
+        max-width: 100%;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
 st.title("Proposal Reviewer Assignment Generator")
 
@@ -19,6 +47,15 @@ uploaded_files = st.file_uploader(
     type=["xlsx"],
     accept_multiple_files=True
 )
+
+# --- Display uploaded files visually grouped ---
+if uploaded_files:
+    st.subheader("Uploaded Files")
+    with st.container():
+        st.markdown('<div class="file-list-container">', unsafe_allow_html=True)
+        for file in uploaded_files:
+            st.markdown(f'<div class="file-box">{file.name}</div>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
 if st.button("Generate Assignments"):
 
@@ -111,12 +148,26 @@ if st.button("Generate Assignments"):
                 display_df.style.applymap(style_cois, subset=["COIs"])
             )
 
+            # --- CSV download ---
             csv = final_df.to_csv(index=False).encode("utf-8")
-
             st.download_button(
                 "⬇️ Download Assignments CSV",
                 csv,
                 "assignments.csv",
                 "text/csv",
                 key="download_assignments_csv"
+            )
+
+            # --- Excel download ---
+            excel_output = BytesIO()
+            with pd.ExcelWriter(excel_output, engine="openpyxl") as writer:
+                final_df.to_excel(writer, index=False, sheet_name="Assignments")
+            excel_output.seek(0)
+
+            st.download_button(
+                label="📥 Download Assignments Excel File",
+                data=excel_output,
+                file_name="assignments.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                key="download_assignments_excel"
             )
