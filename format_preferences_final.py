@@ -15,17 +15,6 @@ st.markdown("""
     }
     </style>
 """, unsafe_allow_html=True)
-.file-list-container {
-        max-height: 600px;
-        overflow-y: auto;
-        padding-right: 10px;
-    }
-
-    .stFileUploader > div {
-        max-width: 100%;
-    }
-    </style>
-""", unsafe_allow_html=True)
 
 st.title("Proposal Reviewer Assignment Generator")
 
@@ -160,6 +149,7 @@ if st.button("Generate Assignments"):
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 key="download_assignments_excel"
             )
+
 
 
 
